@@ -239,12 +239,16 @@ if st.button("Predict Churn Risk"):
     shap_df = shap_df.sort_values("Absolute Impact", ascending=False).head(10)
     shap_df["Feature"] = shap_df["Feature"].apply(clean_feature_name)
 
-    styled_df = shap_df[["Feature", "SHAP Value", "Impact"]].style.applymap(
-        highlight_impact, subset=["Impact"]
-    )
+    def color_impact(val):
+    if val == "Increases Churn Risk":
+        return "🔴 Increases Churn Risk"
+    else:
+        return "🟢 Reduces Churn Risk"
 
-    st.dataframe(styled_df, use_container_width=True)
+display_df = shap_df[["Feature", "SHAP Value", "Impact"]].copy()
+display_df["Impact"] = display_df["Impact"].apply(color_impact)
 
+st.dataframe(display_df, use_container_width=True)
 
     # ===================== WATERFALL =====================
     st.subheader("Customer-Level Explanation (Why this prediction?)")
