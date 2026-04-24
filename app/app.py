@@ -245,10 +245,10 @@ if st.button("Predict Churn Risk"):
         else:
             return "🟢 Reduces Churn Risk"
 
-display_df = shap_df[["Feature", "SHAP Value", "Impact"]].copy()
-display_df["Impact"] = display_df["Impact"].apply(color_impact)
+  display_df = shap_df[["Feature", "SHAP Value", "Impact"]].copy()
+  display_df["Impact"] = display_df["Impact"].apply(color_impact)
 
-st.dataframe(display_df, use_container_width=True)
+  st.dataframe(display_df, use_container_width=True)
 
     # ===================== WATERFALL =====================
     st.subheader("Customer-Level Explanation (Why this prediction?)")
