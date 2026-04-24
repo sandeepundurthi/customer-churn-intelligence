@@ -28,6 +28,7 @@ def load_churn_model():
 def get_explainer(_model):
     return shap.TreeExplainer(_model)
 
+
 # ===================== HELPERS =====================
 def get_risk_label(prob):
     if prob >= 0.70:
@@ -65,10 +66,6 @@ def clean_feature_name(name):
         name = name.replace(key, value)
 
     return name
-
-
-def highlight_impact(val):
-    return "color: red" if val == "Increases Churn Risk" else "color: green"
 
 
 # ===================== LOAD =====================
@@ -177,8 +174,6 @@ st.dataframe(input_data, use_container_width=True)
 if st.button("Predict Churn Risk"):
 
     probability = model.predict_proba(input_data)[0][1]
-    prediction = 1 if probability >= THRESHOLD else 0
-
     label, level = get_risk_label(probability)
 
     col1, col2, col3 = st.columns(3)
@@ -203,7 +198,7 @@ if st.button("Predict Churn Risk"):
     st.progress(float(probability))
 
 
-    # ===================== BUSINESS RECOMMENDATION =====================
+    # ===================== BUSINESS =====================
     st.subheader("Business Recommendation")
 
     if probability >= 0.70:
@@ -218,6 +213,7 @@ if st.button("Predict Churn Risk"):
 
     # ===================== SHAP =====================
     st.subheader("Why This Prediction?")
+    st.caption("Features driving this prediction ranked by impact")
 
     transformed_input = preprocessor.transform(input_data)
     feature_names = preprocessor.get_feature_names_out()
@@ -239,16 +235,18 @@ if st.button("Predict Churn Risk"):
     shap_df = shap_df.sort_values("Absolute Impact", ascending=False).head(10)
     shap_df["Feature"] = shap_df["Feature"].apply(clean_feature_name)
 
+    # SAFE DISPLAY (no pandas styling issues)
     def color_impact(val):
         if val == "Increases Churn Risk":
             return "🔴 Increases Churn Risk"
         else:
             return "🟢 Reduces Churn Risk"
 
-  display_df = shap_df[["Feature", "SHAP Value", "Impact"]].copy()
-  display_df["Impact"] = display_df["Impact"].apply(color_impact)
+    display_df = shap_df[["Feature", "SHAP Value", "Impact"]].copy()
+    display_df["Impact"] = display_df["Impact"].apply(color_impact)
 
-  st.dataframe(display_df, use_container_width=True)
+    st.dataframe(display_df, use_container_width=True)
+
 
     # ===================== WATERFALL =====================
     st.subheader("Customer-Level Explanation (Why this prediction?)")
@@ -267,7 +265,7 @@ if st.button("Predict Churn Risk"):
     plt.close(fig)
 
 
-    # ===================== GLOBAL SHAP =====================
+    # ===================== GLOBAL =====================
     st.subheader("Global Churn Drivers")
 
     if os.path.exists(GLOBAL_SHAP_PATH):
