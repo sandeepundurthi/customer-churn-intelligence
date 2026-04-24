@@ -15,64 +15,86 @@ GLOBAL_SHAP_PATH = "reports/shap_summary.png"
 THRESHOLD = 0.30
 
 
-st.set_page_config(
-    page_title="Customer Churn Intelligence",
-    layout="wide"
-)
+st.set_page_config(page_title="Customer Churn Intelligence", layout="wide")
 
 
+# ===================== LOAD MODEL =====================
 @st.cache_resource
 def load_churn_model():
     return joblib.load(MODEL_PATH)
 
 
 @st.cache_resource
-def get_explainer(_xgb_model):
-    return shap.TreeExplainer(_xgb_model)
+def get_explainer(_model):
+    return shap.TreeExplainer(_model)
 
-
-def get_risk_label(probability):
-    if probability >= 0.70:
+# ===================== HELPERS =====================
+def get_risk_label(prob):
+    if prob >= 0.70:
         return "High Risk", "error"
-    elif probability >= 0.40:
+    elif prob >= 0.40:
         return "Medium Risk", "warning"
-    elif probability >= THRESHOLD:
+    elif prob >= THRESHOLD:
         return "Low-Medium Risk", "info"
     else:
         return "Low Risk", "success"
 
 
 def clean_feature_name(name):
-    return (
-        name.replace("cat__", "")
-        .replace("num__", "")
-        .replace("_", " ")
-        .title()
-    )
+    name = name.replace("cat__", "").replace("num__", "")
+
+    replacements = {
+        "Internetservice": "Internet Service",
+        "Onlinesecurity": "Online Security",
+        "Onlinebackup": "Online Backup",
+        "Deviceprotection": "Device Protection",
+        "Techsupport": "Tech Support",
+        "Streamingtv": "Streaming TV",
+        "Streamingmovies": "Streaming Movies",
+        "Paymentmethod": "Payment Method",
+        "Paperlessbilling": "Paperless Billing",
+        "Monthlycharges": "Monthly Charges",
+        "Totalcharges": "Total Charges",
+        "Avgmonthlyspend": "Avg Monthly Spend",
+        "Seniorcitizen": "Senior Citizen",
+    }
+
+    name = name.replace("_", " ")
+
+    for key, value in replacements.items():
+        name = name.replace(key, value)
+
+    return name
 
 
+def highlight_impact(val):
+    return "color: red" if val == "Increases Churn Risk" else "color: green"
+
+
+# ===================== LOAD =====================
 model = load_churn_model()
 preprocessor = model.named_steps["preprocessor"]
 xgb_model = model.named_steps["model"]
 explainer = get_explainer(xgb_model)
 
 
+# ===================== UI =====================
 st.title("AI-Powered Customer Churn Intelligence Platform")
+
 st.write(
-    "Predict customer churn risk, explain the main reasons behind each prediction, "
-    "and recommend targeted retention actions."
+    "Predict customer churn risk, explain predictions, and recommend targeted retention strategies."
 )
 
 st.subheader("Why This Matters")
 st.write(
     """
     This tool helps businesses identify customers at risk of leaving before they churn.
-    By focusing on high-risk users, teams can improve retention, reduce revenue loss,
-    and personalize customer outreach.
+    By focusing on high-risk users, companies can improve retention and reduce revenue loss.
     """
 )
 
 
+# ===================== SIDEBAR =====================
 st.sidebar.header("Customer Information")
 
 gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
@@ -108,6 +130,8 @@ PaymentMethod = st.sidebar.selectbox(
 MonthlyCharges = st.sidebar.number_input("Monthly Charges", min_value=0.0, value=70.0)
 TotalCharges = st.sidebar.number_input("Total Charges", min_value=0.0, value=1000.0)
 
+
+# ===================== FEATURE ENGINEERING =====================
 AvgMonthlySpend = TotalCharges / (tenure + 1)
 
 if tenure <= 12:
@@ -120,44 +144,42 @@ else:
     TenureGroup = "4-6 years"
 
 
-input_data = pd.DataFrame(
-    [
-        {
-            "gender": gender,
-            "SeniorCitizen": SeniorCitizen,
-            "Partner": Partner,
-            "Dependents": Dependents,
-            "tenure": tenure,
-            "PhoneService": PhoneService,
-            "MultipleLines": MultipleLines,
-            "InternetService": InternetService,
-            "OnlineSecurity": OnlineSecurity,
-            "OnlineBackup": OnlineBackup,
-            "DeviceProtection": DeviceProtection,
-            "TechSupport": TechSupport,
-            "StreamingTV": StreamingTV,
-            "StreamingMovies": StreamingMovies,
-            "Contract": Contract,
-            "PaperlessBilling": PaperlessBilling,
-            "PaymentMethod": PaymentMethod,
-            "MonthlyCharges": MonthlyCharges,
-            "TotalCharges": TotalCharges,
-            "AvgMonthlySpend": AvgMonthlySpend,
-            "TenureGroup": TenureGroup,
-        }
-    ]
-)
+input_data = pd.DataFrame([{
+    "gender": gender,
+    "SeniorCitizen": SeniorCitizen,
+    "Partner": Partner,
+    "Dependents": Dependents,
+    "tenure": tenure,
+    "PhoneService": PhoneService,
+    "MultipleLines": MultipleLines,
+    "InternetService": InternetService,
+    "OnlineSecurity": OnlineSecurity,
+    "OnlineBackup": OnlineBackup,
+    "DeviceProtection": DeviceProtection,
+    "TechSupport": TechSupport,
+    "StreamingTV": StreamingTV,
+    "StreamingMovies": StreamingMovies,
+    "Contract": Contract,
+    "PaperlessBilling": PaperlessBilling,
+    "PaymentMethod": PaymentMethod,
+    "MonthlyCharges": MonthlyCharges,
+    "TotalCharges": TotalCharges,
+    "AvgMonthlySpend": AvgMonthlySpend,
+    "TenureGroup": TenureGroup,
+}])
 
 
 st.subheader("Customer Input")
 st.dataframe(input_data, use_container_width=True)
 
 
+# ===================== PREDICTION =====================
 if st.button("Predict Churn Risk"):
+
     probability = model.predict_proba(input_data)[0][1]
     prediction = 1 if probability >= THRESHOLD else 0
 
-    risk_label, risk_level = get_risk_label(probability)
+    label, level = get_risk_label(probability)
 
     col1, col2, col3 = st.columns(3)
 
@@ -165,69 +187,67 @@ if st.button("Predict Churn Risk"):
         st.metric("Churn Probability", f"{probability * 100:.2f}%")
 
     with col2:
-        st.metric("Decision Threshold", f"{THRESHOLD:.2f}")
+        st.metric("Threshold", f"{THRESHOLD}")
 
     with col3:
-        if risk_level == "error":
-            st.error(f"{risk_label}: Customer likely to churn")
-        elif risk_level == "warning":
-            st.warning(f"{risk_label}: Monitor closely")
-        elif risk_level == "info":
-            st.info(f"{risk_label}: Some churn signals present")
+        if level == "error":
+            st.error(label)
+        elif level == "warning":
+            st.warning(label)
+        elif level == "info":
+            st.info(label)
         else:
-            st.success(f"{risk_label}: Customer likely to stay")
+            st.success(label)
 
+    st.subheader("Churn Risk Score")
+    st.progress(float(probability))
+
+
+    # ===================== BUSINESS RECOMMENDATION =====================
     st.subheader("Business Recommendation")
 
     if probability >= 0.70:
-        st.write(
-            "Offer an immediate retention discount, premium support, or contract upgrade incentive."
-        )
+        st.write("Offer retention discount or contract upgrade.")
     elif probability >= 0.40:
-        st.write(
-            "Send a personalized engagement campaign and monitor customer activity closely."
-        )
+        st.write("Send personalized engagement campaign.")
     elif probability >= THRESHOLD:
-        st.write(
-            "Customer shows some churn signals. Consider light-touch retention outreach."
-        )
+        st.write("Light retention outreach recommended.")
     else:
-        st.write("No urgent action needed. Continue normal engagement.")
+        st.write("No action needed.")
 
+
+    # ===================== SHAP =====================
     st.subheader("Why This Prediction?")
 
     transformed_input = preprocessor.transform(input_data)
     feature_names = preprocessor.get_feature_names_out()
 
-    transformed_df = pd.DataFrame(
-        transformed_input,
-        columns=feature_names,
-    )
+    transformed_df = pd.DataFrame(transformed_input, columns=feature_names)
 
     shap_values = explainer.shap_values(transformed_df)
 
-    shap_df = pd.DataFrame(
-        {
-            "Feature": feature_names,
-            "SHAP Value": shap_values[0],
-            "Impact": [
-                "Increases Churn Risk" if value > 0 else "Reduces Churn Risk"
-                for value in shap_values[0]
-            ],
-        }
-    )
+    shap_df = pd.DataFrame({
+        "Feature": feature_names,
+        "SHAP Value": shap_values[0],
+        "Impact": [
+            "Increases Churn Risk" if v > 0 else "Reduces Churn Risk"
+            for v in shap_values[0]
+        ]
+    })
 
     shap_df["Absolute Impact"] = shap_df["SHAP Value"].abs()
     shap_df = shap_df.sort_values("Absolute Impact", ascending=False).head(10)
     shap_df["Feature"] = shap_df["Feature"].apply(clean_feature_name)
 
-    st.write("Top factors influencing this customer's churn prediction:")
-    st.dataframe(
-        shap_df[["Feature", "SHAP Value", "Impact"]],
-        use_container_width=True,
+    styled_df = shap_df[["Feature", "SHAP Value", "Impact"]].style.applymap(
+        highlight_impact, subset=["Impact"]
     )
 
-    st.subheader("SHAP Explanation Plot")
+    st.dataframe(styled_df, use_container_width=True)
+
+
+    # ===================== WATERFALL =====================
+    st.subheader("SHAP Explanation")
 
     fig = plt.figure()
     shap.plots.waterfall(
@@ -235,24 +255,18 @@ if st.button("Predict Churn Risk"):
             values=shap_values[0],
             base_values=explainer.expected_value,
             data=transformed_df.iloc[0],
-            feature_names=[clean_feature_name(name) for name in feature_names],
+            feature_names=[clean_feature_name(f) for f in feature_names],
         ),
-        max_display=10,
-        show=False,
+        show=False
     )
-
     st.pyplot(fig)
     plt.close(fig)
 
+
+    # ===================== GLOBAL SHAP =====================
     st.subheader("Global Churn Drivers")
 
     if os.path.exists(GLOBAL_SHAP_PATH):
-        st.image(
-            GLOBAL_SHAP_PATH,
-            caption="Top factors influencing churn across all customers",
-            use_container_width=True,
-        )
+        st.image(GLOBAL_SHAP_PATH, use_container_width=True)
     else:
-        st.info(
-            "Global SHAP summary image not found. Add reports/shap_summary.png to display overall churn drivers."
-        )
+        st.info("Global SHAP image not found.")
