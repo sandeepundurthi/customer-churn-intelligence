@@ -240,10 +240,10 @@ if st.button("Predict Churn Risk"):
     shap_df["Feature"] = shap_df["Feature"].apply(clean_feature_name)
 
     def color_impact(val):
-    if val == "Increases Churn Risk":
-        return "🔴 Increases Churn Risk"
-    else:
-        return "🟢 Reduces Churn Risk"
+        if val == "Increases Churn Risk":
+            return "🔴 Increases Churn Risk"
+        else:
+            return "🟢 Reduces Churn Risk"
 
 display_df = shap_df[["Feature", "SHAP Value", "Impact"]].copy()
 display_df["Impact"] = display_df["Impact"].apply(color_impact)
