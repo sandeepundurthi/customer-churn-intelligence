@@ -213,7 +213,7 @@ if st.button("Predict Churn Risk"):
     elif probability >= THRESHOLD:
         st.write("Light retention outreach recommended.")
     else:
-        st.write("No action needed.")
+        st.write("Customer shows strong retention signals. No immediate intervention required.")
 
 
     # ===================== SHAP =====================
@@ -247,7 +247,7 @@ if st.button("Predict Churn Risk"):
 
 
     # ===================== WATERFALL =====================
-    st.subheader("SHAP Explanation")
+    st.subheader("Customer-Level Explanation (Why this prediction?)")
 
     fig = plt.figure()
     shap.plots.waterfall(
